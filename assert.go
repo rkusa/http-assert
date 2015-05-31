@@ -44,7 +44,7 @@ func (err assertError) stack() string {
 
 	stack := string(buf)
 	lines := strings.Split(stack, "\n")
-	return strings.Join(lines, "\n")
+	return strings.Join(append(lines[0:1], lines[5:]...), "\n")
 }
 
 func ok(condition bool, statusCode int, message string, args ...interface{}) error {
