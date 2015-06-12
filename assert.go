@@ -20,6 +20,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/go-errors/errors"
 	"github.com/rkgo/web"
 )
 
@@ -159,6 +160,11 @@ func Middleware(logger *log.Logger) web.Middleware {
 			err := recover()
 			if err == nil {
 				return
+			}
+
+			// support github.com/go-errors/errors wrapped errors
+			if e, ok := err.(*errors.Error); ok {
+				err = e.Err
 			}
 
 			switch assert := err.(type) {
