@@ -2,7 +2,7 @@
 
 Simplified error handling for http routes using assert with status code.
 
-[![Build Status][drone]](https://ci.rkusa.st/github.com/rkgo/assert)
+[![Build Status][drone]](https://ci.rkusa.st/rkgo/assert)
 [![GoDoc][godoc]](https://godoc.org/github.com/rkgo/assert)
 
 ### Example
@@ -22,5 +22,5 @@ assert.Error(err)
 assert.Success(err, 400, "something failed")
 ```
 
-[drone]: http://ci.rkusa.st/api/badge/github.com/rkgo/assert/status.svg?branch=master&style=flat-square
+[drone]: http://ci.rkusa.st/api/badges/rkgo/assert/status.svg?style=flat-square
 [godoc]: http://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square
