@@ -48,13 +48,18 @@ func (err assertError) stack() string {
 	return strings.Join(append(lines[0:1], lines[5:]...), "\n")
 }
 
+// NewAssertError creates a new assertion error.
+func NewAssertError(statusCode int, message string, args ...interface{}) error {
+	if len(message) == 0 {
+		message = http.StatusText(statusCode)
+	}
+
+	return assertError{statusCode, fmt.Sprintf(message, args...)}
+}
+
 func ok(condition bool, statusCode int, message string, args ...interface{}) error {
 	if !condition {
-		if len(message) == 0 {
-			message = http.StatusText(statusCode)
-		}
-
-		return assertError{statusCode, fmt.Sprintf(message, args...)}
+		return NewAssertError(statusCode, message, args...)
 	}
 
 	return nil
@@ -81,7 +86,11 @@ func Success(err error, statusCode int, message string, args ...interface{}) {
 // error exists.
 func Error(err error) {
 	if err != nil {
-		panic(ok(false, http.StatusInternalServerError, err.Error()))
+		if _, fine := err.(assertError); fine {
+			panic(err)
+		} else {
+			panic(ok(false, http.StatusInternalServerError, err.Error()))
+		}
 	}
 }
 
