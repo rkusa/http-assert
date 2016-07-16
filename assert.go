@@ -180,9 +180,10 @@ func Middleware(logger *log.Logger) web.Middleware {
 			case assertError:
 				if assert.statusCode == http.StatusInternalServerError && logger != nil {
 					logger.Printf("PANIC: %s\n%s", assert.Error(), assert.stack())
+					http.Error(ctx, http.StatusText(assert.statusCode), assert.statusCode)
+				} else {
+					http.Error(ctx, assert.Error(), assert.statusCode)
 				}
-
-				http.Error(ctx, "Internal Server Error", assert.statusCode)
 			default:
 				panic(err)
 			}
