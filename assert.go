@@ -182,7 +182,7 @@ func Middleware(logger *log.Logger) web.Middleware {
 					logger.Printf("PANIC: %s\n%s", assert.Error(), assert.stack())
 				}
 
-				http.Error(ctx, assert.Error(), assert.statusCode)
+				http.Error(ctx, "Internal Server Error", assert.statusCode)
 			default:
 				panic(err)
 			}
