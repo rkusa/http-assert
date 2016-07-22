@@ -161,12 +161,6 @@ func Middleware(l *log.Logger) func(http.ResponseWriter, *http.Request, http.Han
 				return
 			}
 
-			// TODO: ?
-			// support github.com/go-errors/errors wrapped errors
-			// if e, ok := err.(*errors.Error); ok {
-			// 	err = e.Err
-			// }
-
 			switch assert := err.(type) {
 			case assertError:
 				if assert.statusCode == http.StatusInternalServerError && l != nil {
