@@ -1,4 +1,6 @@
-// Simplified error handling for http routes using assert with status code.
+// Package assert simplifies error handling for http routes using assert with
+// status code. It exposes a middleware that works well (but not exclusively)
+// with [rkusa/web](https://github.com/rkusa/web).
 //
 // Middleware usage
 //
@@ -17,11 +19,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"runtime"
+	"runtime/debug"
 	"strings"
-
-	"github.com/go-errors/errors"
-	"github.com/rkgo/web"
 )
 
 type assertError struct {
@@ -34,18 +33,9 @@ func (err assertError) Error() string {
 }
 
 func (err assertError) stack() string {
-	buf := make([]byte, 32)
-	for {
-		n := runtime.Stack(buf, false)
-		if n < len(buf) {
-			break
-		}
-		buf = make([]byte, len(buf)*2)
-	}
-
-	stack := string(buf)
+	stack := string(debug.Stack())
 	lines := strings.Split(stack, "\n")
-	return strings.Join(append(lines[0:1], lines[5:]...), "\n")
+	return strings.Join(lines[9:], "\n")
 }
 
 // NewAssertError creates a new assertion error.
@@ -163,32 +153,34 @@ func New() Assert {
 
 // This Middleware is required to properly handle the errors thrown using
 // this assert package. It must be called before the asserts are used.
-func Middleware(logger *log.Logger) web.Middleware {
-	return func(ctx web.Context, next web.Next) {
+func Middleware(l *log.Logger) func(http.ResponseWriter, *http.Request, http.HandlerFunc) {
+	return func(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 		defer func() {
 			err := recover()
 			if err == nil {
 				return
 			}
 
+			// TODO: ?
 			// support github.com/go-errors/errors wrapped errors
-			if e, ok := err.(*errors.Error); ok {
-				err = e.Err
-			}
+			// if e, ok := err.(*errors.Error); ok {
+			// 	err = e.Err
+			// }
 
 			switch assert := err.(type) {
 			case assertError:
-				if assert.statusCode == http.StatusInternalServerError && logger != nil {
-					logger.Printf("PANIC: %s\n%s", assert.Error(), assert.stack())
-					http.Error(ctx, http.StatusText(assert.statusCode), assert.statusCode)
+				if assert.statusCode == http.StatusInternalServerError && l != nil {
+					l.Printf("PANIC: %s\n%s", assert.Error(), assert.stack())
+					http.Error(rw, http.StatusText(assert.statusCode), assert.statusCode)
 				} else {
-					http.Error(ctx, assert.Error(), assert.statusCode)
+					http.Error(rw, assert.Error(), assert.statusCode)
 				}
 			default:
+				log.Println("DEFAULT")
 				panic(err)
 			}
 		}()
 
-		next(ctx)
+		next(rw, r)
 	}
 }

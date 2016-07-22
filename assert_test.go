@@ -6,8 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/rkgo/web"
-	"github.com/stretchr/testify/assert"
+	"github.com/rkusa/web"
 )
 
 func TestOK(t *testing.T) {
@@ -15,7 +14,9 @@ func TestOK(t *testing.T) {
 	func() {
 		defer func() {
 			err := recover()
-			assert.Nil(t, err)
+			if err != nil {
+				t.Errorf("expected err to be nil, got %v", err)
+			}
 		}()
 
 		OK(true, http.StatusNotFound, "")
@@ -24,11 +25,10 @@ func TestOK(t *testing.T) {
 	// condition evaluates to false - empty message provided
 	func() {
 		defer func() {
-			err, ok := recover().(error)
-			assert.True(t, ok)
+			err := recover().(error)
 
-			if assert.Error(t, err) {
-				assert.Equal(t, err.Error(), "Not Found")
+			if err == nil || err.Error() != "Not Found" {
+				t.Errorf(`expected "Not Found" error, got %s`, err.Error())
 			}
 		}()
 
@@ -38,11 +38,10 @@ func TestOK(t *testing.T) {
 	// condition evaluates to false - with provided message
 	func() {
 		defer func() {
-			err, ok := recover().(error)
-			assert.True(t, ok)
+			err := recover().(error)
 
-			if assert.Error(t, err) {
-				assert.Equal(t, err.Error(), "Invalid input")
+			if err == nil || err.Error() != "Invalid input" {
+				t.Errorf(`expected "Invalid input" error, got %s`, err.Error())
 			}
 		}()
 
@@ -55,7 +54,9 @@ func TestSuccess(t *testing.T) {
 	func() {
 		defer func() {
 			err := recover()
-			assert.Nil(t, err)
+			if err != nil {
+				t.Errorf("expected err to be nil, got %v", err)
+			}
 		}()
 
 		Success(nil, http.StatusNotFound, "")
@@ -64,11 +65,10 @@ func TestSuccess(t *testing.T) {
 	// error - empty message provided
 	func() {
 		defer func() {
-			err, ok := recover().(error)
-			assert.True(t, ok)
+			err := recover().(error)
 
-			if assert.Error(t, err) {
-				assert.Equal(t, err.Error(), "Not Found")
+			if err == nil || err.Error() != "Not Found" {
+				t.Errorf(`expected "Not Found" error, got %s`, err.Error())
 			}
 		}()
 
@@ -78,11 +78,10 @@ func TestSuccess(t *testing.T) {
 	// error - with provided message
 	func() {
 		defer func() {
-			err, ok := recover().(error)
-			assert.True(t, ok)
+			err := recover().(error)
 
-			if assert.Error(t, err) {
-				assert.Equal(t, err.Error(), "Invalid input")
+			if err == nil || err.Error() != "Invalid input" {
+				t.Errorf(`expected "Invalid input" error, got %s`, err.Error())
 			}
 		}()
 
@@ -95,7 +94,9 @@ func TestError(t *testing.T) {
 	func() {
 		defer func() {
 			err := recover()
-			assert.Nil(t, err)
+			if err != nil {
+				t.Errorf("expected err to be nil, got %v", err)
+			}
 		}()
 
 		Error(nil)
@@ -104,12 +105,11 @@ func TestError(t *testing.T) {
 	// error
 	func() {
 		defer func() {
-			err, ok := recover().(error)
-			assert.True(t, ok)
-
-			if assert.Error(t, err) {
-				assert.Equal(t, err.Error(), "Fail")
+			err := recover().(error)
+			if err == nil || err.Error() != "Fail" {
+				t.Errorf(`expected "Fail" error, got %s`, err.Error())
 			}
+
 		}()
 
 		Error(fmt.Errorf("Fail"))
@@ -119,11 +119,9 @@ func TestError(t *testing.T) {
 func TestThrow(t *testing.T) {
 	func() {
 		defer func() {
-			err, ok := recover().(error)
-			assert.True(t, ok)
-
-			if assert.Error(t, err) {
-				assert.Equal(t, err.Error(), "Invalid input")
+			err := recover().(error)
+			if err == nil || err.Error() != "Invalid input" {
+				t.Errorf(`expected "Invalid input" error, got %s`, err.Error())
 			}
 		}()
 
@@ -134,14 +132,14 @@ func TestThrow(t *testing.T) {
 func TestOnError(t *testing.T) {
 	called := false
 	defer func() {
-		err, ok := recover().(error)
-		assert.True(t, ok)
-
-		if assert.Error(t, err) {
-			assert.Equal(t, err.Error(), "Bad Request")
+		err := recover().(error)
+		if err == nil || err.Error() != "Bad Request" {
+			t.Errorf(`expected "Bad Request" error, got %s`, err.Error())
 		}
 
-		assert.True(t, called)
+		if !called {
+			t.Errorf("OnError was not called")
+		}
 	}()
 
 	as := New()
@@ -155,13 +153,18 @@ func TestOnError(t *testing.T) {
 func TestMiddleware(t *testing.T) {
 	app := web.New()
 	app.Use(Middleware(nil))
-	app.Use(func(ctx web.Context, next web.Next) {
+	app.Use(func(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 		Error(fmt.Errorf("Fail"))
 	})
 
 	rec := httptest.NewRecorder()
 	app.ServeHTTP(rec, (*http.Request)(nil))
 
-	assert.Equal(t, rec.Code, http.StatusInternalServerError)
-	assert.Equal(t, rec.Body.String(), "Fail\n")
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected %s, got %s", http.StatusText(http.StatusInternalServerError), http.StatusText(rec.Code))
+	}
+
+	if rec.Body.String() != "Fail\n" {
+		t.Errorf(`Expected body of "Fail\n", got %s`, rec.Body.String())
+	}
 }
