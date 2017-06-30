@@ -23,16 +23,17 @@ import (
 	"strings"
 )
 
-type assertError struct {
+type AssertError struct {
 	statusCode int
 	message    string
+	Err        error
 }
 
-func (err assertError) Error() string {
+func (err AssertError) Error() string {
 	return err.message
 }
 
-func (err assertError) stack() string {
+func (err AssertError) stack() string {
 	stack := string(debug.Stack())
 	lines := strings.Split(stack, "\n")
 	return strings.Join(lines[9:], "\n")
@@ -44,12 +45,24 @@ func NewAssertError(statusCode int, message string, args ...interface{}) error {
 		message = http.StatusText(statusCode)
 	}
 
-	return assertError{statusCode, fmt.Sprintf(message, args...)}
+	return AssertError{statusCode, fmt.Sprintf(message, args...), nil}
 }
 
 func ok(condition bool, statusCode int, message string, args ...interface{}) error {
 	if !condition {
 		return NewAssertError(statusCode, message, args...)
+	}
+
+	return nil
+}
+
+func ok_err(err error, statusCode int, message string, args ...interface{}) error {
+	if err != nil {
+		if len(message) == 0 {
+			message = http.StatusText(statusCode)
+		}
+
+		return AssertError{statusCode, fmt.Sprintf(message, args...), err}
 	}
 
 	return nil
@@ -67,7 +80,7 @@ func OK(condition bool, statusCode int, message string, args ...interface{}) {
 // Success throws with the given statusCode and message if the provided error
 // exists. If message is an empty string, the default status description is used.
 func Success(err error, statusCode int, message string, args ...interface{}) {
-	if e := ok(err == nil, statusCode, message, args...); e != nil {
+	if e := ok_err(err, statusCode, message, args...); e != nil {
 		panic(e)
 	}
 }
@@ -76,10 +89,10 @@ func Success(err error, statusCode int, message string, args ...interface{}) {
 // error exists.
 func Error(err error) {
 	if err != nil {
-		if _, fine := err.(assertError); fine {
+		if _, ok := err.(AssertError); ok {
 			panic(err)
 		} else {
-			panic(ok(false, http.StatusInternalServerError, err.Error()))
+			panic(ok_err(err, http.StatusInternalServerError, err.Error()))
 		}
 	}
 }
@@ -128,7 +141,7 @@ func (a *assertEncapsulation) OK(condition bool, statusCode int, message string,
 // Success throws with the given statusCode and message if the provided error
 // exists. If message is an empty string, the default status description is used.
 func (a *assertEncapsulation) Success(err error, statusCode int, message string, args ...interface{}) {
-	if e := ok(err == nil, statusCode, message, args...); e != nil {
+	if e := ok_err(err, statusCode, message, args...); e != nil {
 		a.throw(e)
 	}
 }
@@ -137,7 +150,7 @@ func (a *assertEncapsulation) Success(err error, statusCode int, message string,
 // error exists.
 func (a *assertEncapsulation) Error(err error) {
 	if err != nil {
-		a.throw(ok(false, http.StatusInternalServerError, err.Error()))
+		a.throw(ok_err(err, http.StatusInternalServerError, err.Error()))
 	}
 }
 
@@ -162,7 +175,7 @@ func Middleware(l *log.Logger) func(http.ResponseWriter, *http.Request, http.Han
 			}
 
 			switch assert := err.(type) {
-			case assertError:
+			case AssertError:
 				if assert.statusCode == http.StatusInternalServerError && l != nil {
 					l.Printf("PANIC: %s\n%s", assert.Error(), assert.stack())
 					http.Error(rw, http.StatusText(assert.statusCode), assert.statusCode)
@@ -170,7 +183,6 @@ func Middleware(l *log.Logger) func(http.ResponseWriter, *http.Request, http.Han
 					http.Error(rw, assert.Error(), assert.statusCode)
 				}
 			default:
-				log.Println("DEFAULT")
 				panic(err)
 			}
 		}()
