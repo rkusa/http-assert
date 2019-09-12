@@ -17,7 +17,6 @@ package assert
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"runtime/debug"
 	"strings"
@@ -164,9 +163,13 @@ func New() Assert {
 	return &assertEncapsulation{nil}
 }
 
+type Logger interface {
+	Printf(format string, v ...interface{})
+}
+
 // This Middleware is required to properly handle the errors thrown using
 // this assert package. It must be called before the asserts are used.
-func Middleware(l *log.Logger) func(http.ResponseWriter, *http.Request, http.HandlerFunc) {
+func Middleware(l Logger) func(http.ResponseWriter, *http.Request, http.HandlerFunc) {
 	return func(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 		defer func() {
 			err := recover()
